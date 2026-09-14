@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block title %}Saved items — {{ shop_name }}{% endblock %}
+
+{% block content %}
+<div class="section-head">
+  <h1>Saved for later</h1>
+  <p>{{ saved|length }} item{{ saved|length|pluralize }}</p>
+</div>
+
+{% if saved %}
+  <div class="grid">
+    {% for entry in saved %}
+      {% with product=entry.product %}
+        <div>
+          {% include "products/_card.html" %}
+          <form method="post" action="{% url 'wishlist_toggle' product.slug %}" style="margin-top:0.6rem">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{% url 'wishlist' %}">
+            <button class="btn btn-small btn-quiet" type="submit">Remove</button>
+          </form>
+        </div>
+      {% endwith %}
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="empty-state">
+    <h2>Nothing saved yet</h2>
+    <p>Use “Save for later” on any product to keep it here.</p>
+    <a class="btn" href="{% url 'product_list' %}">Browse the shop</a>
+  </div>
+{% endif %}
+{% endblock %}

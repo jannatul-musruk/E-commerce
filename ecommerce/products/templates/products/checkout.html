@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block title %}Checkout — {{ shop_name }}{% endblock %}
+
+{% block content %}
+<div class="section-head">
+  <h1>Checkout</h1>
+  <p>Step 2 of 2 — where it goes and how you pay</p>
+</div>
+
+<form method="post">
+  {% csrf_token %}
+  <div class="split">
+    <div>
+      <fieldset>
+        <legend>Delivery address</legend>
+        {{ form.non_field_errors }}
+        <p>{{ form.recipient_name.label_tag }}{{ form.recipient_name }}{{ form.recipient_name.errors }}</p>
+        <p>{{ form.phone.label_tag }}{{ form.phone }}{{ form.phone.errors }}<span class="form-hint">We call this number before delivery.</span></p>
+        <p>{{ form.address.label_tag }}{{ form.address }}{{ form.address.errors }}</p>
+        <p>{{ form.city.label_tag }}{{ form.city }}{{ form.city.errors }}<span class="form-hint">Type Dhaka for the ৳60 rate.</span></p>
+        <p>{{ form.postal_code.label_tag }}{{ form.postal_code }}{{ form.postal_code.errors }}</p>
+        <p>{{ form.country.label_tag }}{{ form.country }}{{ form.country.errors }}</p>
+      </fieldset>
+
+      <fieldset>
+        <legend>Payment</legend>
+        <div class="radio-row">{{ form.payment_method }}</div>
+        {{ form.payment_method.errors }}
+        <span class="form-hint">Cash on delivery is settled at your door. The other methods are marked paid straight away in this demo.</span>
+      </fieldset>
+    </div>
+
+    <div class="summary">
+      <h3>Order summary</h3>
+      <table>
+        {% for item in items %}
+          <tr>
+            <td>{{ item.variant.product.name }}<div class="maker">{{ item.variant.name }} &times; {{ item.quantity }}</div></td>
+            <td class="numeric">৳{{ item.line_total|floatformat:0 }}</td>
+          </tr>
+        {% endfor %}
+      </table>
+      <dl style="margin-top:1rem">
+        <dt>Subtotal</dt><dd>৳{{ subtotal|floatformat:0 }}</dd>
+        <dt>Delivery</dt><dd>৳{{ delivery|floatformat:0 }}</dd>
+        <dt class="total">Total</dt><dd class="total">৳{{ total|floatformat:0 }}</dd>
+      </dl>
+      <button class="btn btn-accent" type="submit">Place the order</button>
+    </div>
+  </div>
+</form>
+{% endblock %}

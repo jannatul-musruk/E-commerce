@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+
+{% block title %}{{ shop_name }} — handmade goods from Bangladesh{% endblock %}
+
+{% block hero %}
+<section class="hero">
+  <div class="shell hero-inner">
+    <div class="banner banner-main">
+      <span class="banner-kicker">Eid collection is live</span>
+      <h1>Up to 25% off handmade pieces</h1>
+      <p>Pottery, jamdani, jute, leather and brass — straight from the workshops that make them. No middlemen, no factory copies.</p>
+      <a class="btn btn-accent" href="{% url 'product_list' %}">Shop the offers</a>
+      {% if hero_product and hero_product.image %}
+        <img class="banner-art" src="{{ hero_product.image.url }}" alt="{{ hero_product.name }}">
+      {% endif %}
+    </div>
+
+    <div class="hero-side-stack">
+      <div class="banner banner-side banner-amber">
+        <h3>New in: nokshi kantha</h3>
+        <p>Hand-quilted throws, each one a single maker's work over six weeks.</p>
+        <a class="btn btn-small" href="{% url 'product_list' %}?category=jamdani-textiles">See the textiles</a>
+      </div>
+      <div class="banner banner-side banner-mint">
+        <h3>Cash on delivery</h3>
+        <p>Pay when it reaches your door, anywhere in Bangladesh.</p>
+        <a class="btn btn-small btn-quiet" href="{% url 'product_list' %}">Start shopping</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="shell">
+    <div class="trust">
+      <div><strong>Ships in 2 days</strong><small>From our Dhaka store</small></div>
+      <div><strong>7 day returns</strong><small>No questions asked</small></div>
+      <div><strong>bKash &amp; Nagad</strong><small>Or pay cash on delivery</small></div>
+      <div><strong>{{ categories|length }} crafts</strong><small>From named workshops</small></div>
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block content %}
+  <div class="section-head">
+    <h2>Shop by craft</h2>
+    <p><a href="{% url 'product_list' %}">See all products</a></p>
+  </div>
+  <div class="tiles">
+    {% for category in categories %}
+      <a class="tile" href="{{ category.get_absolute_url }}">
+        {% if category.image %}
+          <img src="{{ category.image.url }}" alt="{{ category.name }}">
+        {% else %}
+          <div class="tile-fallback">{{ category.name|first }}</div>
+        {% endif %}
+        <strong>{{ category.name }}</strong>
+        <small>{{ category.product_count }} item{{ category.product_count|pluralize }}</small>
+      </a>
+    {% endfor %}
+  </div>
+
+  {% if on_offer %}
+    <div class="section-head">
+      <h2>On offer now</h2>
+      <p>Prices go back up at the end of the month</p>
+    </div>
+    <div class="grid">
+      {% for product in on_offer %}{% include "products/_card.html" %}{% endfor %}
+    </div>
+  {% endif %}
+
+  {% if featured %}
+    <div class="section-head">
+      <h2>Picked by the shop</h2>
+      <p>Chosen by us, not by an algorithm</p>
+    </div>
+    <div class="grid">
+      {% for product in featured %}{% include "products/_card.html" %}{% endfor %}
+    </div>
+  {% endif %}
+
+  <div class="section-head">
+    <h2>Newest arrivals</h2>
+    <p><a href="{% url 'product_list' %}">See everything</a></p>
+  </div>
+  {% if latest %}
+    <div class="grid">
+      {% for product in latest %}{% include "products/_card.html" %}{% endfor %}
+    </div>
+  {% else %}
+    <div class="empty-state">
+      <h2>The shelves are empty</h2>
+      <p>Run <code>python manage.py seed_data</code> to fill the shop with sample stock.</p>
+    </div>
+  {% endif %}
+{% endblock %}

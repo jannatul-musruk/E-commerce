@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block title %}Create an account — {{ shop_name }}{% endblock %}
+
+{% block content %}
+<div class="split">
+  <div>
+    <h1>Create an account</h1>
+    <p>You need one to keep a bag, save pieces and track orders.</p>
+
+    <form method="post">
+      {% csrf_token %}
+      {% if form.non_field_errors %}<ul class="errorlist">{% for e in form.non_field_errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+      {% for field in form %}
+        <p>
+          {{ field.label_tag }}
+          {{ field }}
+          {{ field.errors }}
+          {% if field.help_text %}<span class="helptext">{{ field.help_text|safe }}</span>{% endif %}
+        </p>
+      {% endfor %}
+      <button class="btn btn-accent" type="submit">Create account</button>
+    </form>
+  </div>
+
+  <div class="summary">
+    <h3>What we store</h3>
+    <p style="margin:0">Your name, email and phone, so we can deliver and call you. Passwords are hashed — nobody at the shop can read them, not even in the admin.</p>
+    <p style="margin-top:1rem">Already registered? <a href="{% url 'login' %}">Log in</a>.</p>
+  </div>
+</div>
+{% endblock %}

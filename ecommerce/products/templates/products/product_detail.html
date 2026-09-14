@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+
+{% block title %}{{ product.name }} — {{ shop_name }}{% endblock %}
+
+{% block content %}
+<p class="maker"><a href="{% url 'product_list' %}">Shop</a> / <a href="{{ product.category.get_absolute_url }}">{{ product.category.name }}</a></p>
+
+<div class="split">
+  <div>
+    {% if product.image %}
+      <div class="detail-figure">
+        <img src="{{ product.image.url }}" alt="{{ product.name }}">
+        {% if product.discount_percent %}<span class="badge">-{{ product.discount_percent }}% today</span>{% endif %}
+      </div>
+    {% else %}
+      <div class="detail-figure product-figure empty">{{ product.name|first }}</div>
+    {% endif %}
+
+    <h2 style="margin-top:2rem">About this piece</h2>
+    <p>{{ product.description|linebreaksbr }}</p>
+    <p class="maker">Made by {{ product.brand.name }}{% if product.brand.origin %}, {{ product.brand.origin }}{% endif %}.</p>
+  </div>
+
+  <div>
+    <h1>{{ product.name }}</h1>
+    <p class="maker">
+      {{ product.brand.name }}
+      {% if product.average_rating %}&middot; <span class="rating">{{ product.average_rating }}/5</span> from {{ product.reviews.count }} review{{ product.reviews.count|pluralize }}{% endif %}
+    </p>
+
+    {% if product.variants.all %}
+      <div>
+        <fieldset>
+          <legend>Choose one</legend>
+          <ul class="variant-list">
+            {% for variant in product.variants.all %}
+              <li>
+                <span class="variant-name">{{ variant.name }}</span>
+                <span class="price">৳{{ variant.price|floatformat:0 }}</span>
+                {% if variant.is_on_offer %}
+                  <span class="price-was">৳{{ variant.compare_at_price|floatformat:0 }}</span>
+                  <span class="price-off">-{{ variant.discount_percent }}%</span>
+                {% endif %}
+                {% if variant.in_stock %}
+                  <form method="post" action="{% url 'cart_add' variant.pk %}" class="qty-form">
+                    {% csrf_token %}
+                    <input type="number" name="quantity" value="1" min="1" max="{{ variant.stock }}" aria-label="Quantity of {{ variant.name }}">
+                    <button class="btn btn-small" type="submit">Add to bag</button>
+                  </form>
+                {% else %}
+                  <span class="stock-out">Sold out</span>
+                {% endif %}
+              </li>
+            {% endfor %}
+          </ul>
+        </fieldset>
+      </div>
+    {% else %}
+      <p class="stock-out">No options listed for this product yet.</p>
+    {% endif %}
+
+    {% if user.is_authenticated %}
+      <form method="post" action="{% url 'wishlist_toggle' product.slug %}">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ request.path }}">
+        <button class="btn btn-quiet btn-small" type="submit">
+          {% if in_wishlist %}Remove from saved{% else %}Save for later{% endif %}
+        </button>
+      </form>
+    {% endif %}
+
+    <div class="summary" style="margin-top:2rem">
+      <h3>Good to know</h3>
+      <p style="margin:0">Ships from Dhaka in two working days. Delivery ৳60 inside Dhaka, ৳120 elsewhere. Return it within 7 days if it is not right.</p>
+    </div>
+  </div>
+</div>
+
+<hr class="stitch">
+
+<div class="split">
+  <div>
+    <div class="section-head"><h2>What buyers say</h2></div>
+    {% for review in product.reviews.all %}
+      <div class="review">
+        <div class="review-head">
+          <strong>{{ review.customer.user.first_name|default:review.customer.user.username }}</strong>
+          <span class="rating">{{ review.rating }}/5</span>
+          <time>{{ review.created_at|date:"j M Y" }}</time>
+        </div>
+        <p style="margin:0.4rem 0 0">{{ review.comment }}</p>
+      </div>
+    {% empty %}
+      <p class="maker">No reviews yet. Be the first to write one.</p>
+    {% endfor %}
+  </div>
+
+  <div>
+    {% if user.is_authenticated %}
+      {% if already_reviewed %}
+        <div class="summary"><p style="margin:0">You have already reviewed this product.</p></div>
+      {% else %}
+        <div class="summary">
+          <h3>Write a review</h3>
+          <form method="post" action="{% url 'add_review' product.slug %}">
+            {% csrf_token %}
+            <div class="radio-row">{{ review_form.rating }}</div>
+            {{ review_form.comment }}
+            <p style="margin-top:0.8rem"><button class="btn" type="submit">Post review</button></p>
+          </form>
+        </div>
+      {% endif %}
+    {% else %}
+      <div class="summary"><p style="margin:0"><a href="{% url 'login' %}">Log in</a> to write a review.</p></div>
+    {% endif %}
+  </div>
+</div>
+
+{% if related %}
+  <hr class="stitch">
+  <div class="section-head"><h2>More {{ product.category.name|lower }}</h2></div>
+  <div class="grid">
+    {% for product in related %}{% include "products/_card.html" %}{% endfor %}
+  </div>
+{% endif %}
+{% endblock %}

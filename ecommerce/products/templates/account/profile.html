@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block title %}Your profile — {{ shop_name }}{% endblock %}
+
+{% block content %}
+<div class="section-head">
+  <h1>{{ user.full_name }}</h1>
+  <p>Member since {{ customer.joined_at|date:"F Y" }}</p>
+</div>
+
+<div class="split">
+  <div>
+    <form method="post">
+      {% csrf_token %}
+      <fieldset>
+        <legend>Your details</legend>
+        {% for field in form %}
+          <p>{{ field.label_tag }}{{ field }}{{ field.errors }}</p>
+        {% endfor %}
+      </fieldset>
+      <button class="btn" type="submit">Save changes</button>
+    </form>
+  </div>
+
+  <div>
+    <div class="summary">
+      <h3>At a glance</h3>
+      <dl>
+        <dt>Orders placed</dt><dd>{{ order_count }}</dd>
+        <dt>Reviews written</dt><dd>{{ review_count }}</dd>
+        <dt>Items saved</dt><dd>{{ customer.wishlist.count }}</dd>
+        <dt>Newsletter</dt><dd>{% if is_subscribed %}on{% else %}off{% endif %}</dd>
+      </dl>
+      <a class="btn btn-small btn-quiet" href="{% url 'order_list' %}">See your orders</a>
+    </div>
+
+    <div class="summary" style="margin-top:1.5rem">
+      <h3>Recent activity</h3>
+      <ul style="list-style:none;padding:0;margin:0">
+        {% for entry in activity %}
+          <li style="border-bottom:1px dashed var(--line);padding:0.4rem 0">
+            {{ entry.action }}
+            <div class="maker">{{ entry.created_at|date:"j M, g:i a" }}</div>
+          </li>
+        {% empty %}
+          <li class="maker">Nothing logged yet.</li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+</div>
+{% endblock %}

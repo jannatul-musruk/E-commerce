@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block title %}{{ order.code }} — {{ shop_name }}{% endblock %}
+
+{% block content %}
+<div class="section-head">
+  <h1>{{ order.code }}</h1>
+  <p><span class="tag tag-{{ order.status }}">{{ order.get_status_display }}</span> placed {{ order.created_at|date:"j M Y, g:i a" }}</p>
+</div>
+
+<div class="split">
+  <div>
+    <table class="line-table">
+      <thead><tr><th>Item</th><th class="numeric">Unit price</th><th class="numeric">Qty</th><th class="numeric">Total</th></tr></thead>
+      <tbody>
+        {% for item in order.items.all %}
+          <tr>
+            <td>
+              <a href="{{ item.variant.product.get_absolute_url }}">{{ item.variant.product.name }}</a>
+              <div class="maker">{{ item.variant.name }}</div>
+              {% if item.return_request %}
+                <div class="maker">Return {{ item.return_request.get_status_display|lower }} on {{ item.return_request.requested_at|date:"j M" }}</div>
+              {% elif order.status == 'delivered' %}
+                <details style="margin-top:0.5rem">
+                  <summary class="linkish">Request a return</summary>
+                  <form method="post" action="{% url 'request_return' item.pk %}" style="margin-top:0.5rem">
+                    {% csrf_token %}
+                    {{ return_form.reason }}
+                    <button class="btn btn-small" type="submit">Send request</button>
+                  </form>
+                </details>
+              {% endif %}
+            </td>
+            <td class="numeric">৳{{ item.unit_price|floatformat:0 }}</td>
+            <td class="numeric">{{ item.quantity }}</td>
+            <td class="numeric price">৳{{ item.line_total|floatformat:0 }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    {% if order.can_be_cancelled %}
+      <form method="post" action="{% url 'order_cancel' order.pk %}" style="margin-top:1.5rem">
+        {% csrf_token %}
+        <button class="btn btn-small btn-danger" type="submit">Cancel this order</button>
+      </form>
+    {% endif %}
+  </div>
+
+  <div>
+    <div class="summary">
+      <h3>Payment</h3>
+      <dl>
+        <dt>Subtotal</dt><dd>৳{{ order.subtotal|floatformat:0 }}</dd>
+        <dt>Delivery</dt><dd>৳{{ order.delivery_charge|floatformat:0 }}</dd>
+        <dt class="total">Total</dt><dd class="total">৳{{ order.total|floatformat:0 }}</dd>
+      </dl>
+      <p style="margin:0">{{ order.payment.get_method_display }} — {% if order.payment.is_paid %}paid {{ order.payment.paid_at|date:"j M Y" }}{% else %}not paid yet{% endif %}</p>
+    </div>
+
+    <div class="summary" style="margin-top:1.5rem">
+      <h3>Delivering to</h3>
+      <p style="margin:0">
+        {{ order.shipping_address.recipient_name }}<br>
+        {{ order.shipping_address.address }}<br>
+        {{ order.shipping_address.city }} {{ order.shipping_address.postal_code }}<br>
+        {{ order.shipping_address.country }}<br>
+        {{ order.shipping_address.phone }}
+      </p>
+    </div>
+  </div>
+</div>
+{% endblock %}

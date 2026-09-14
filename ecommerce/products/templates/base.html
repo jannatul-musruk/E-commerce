@@ -1,0 +1,129 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}{{ shop_name }} — {{ shop_tagline }}{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=Hind+Siliguri:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'css/style.css' %}">
+</head>
+<body>
+
+<div class="ticker">
+  <div class="shell">
+    <span>Free delivery on orders over <strong>৳5,000</strong></span>
+    <span>Cash on delivery across Bangladesh</span>
+    <span>Call: <strong>01568567758</strong>, 9am to 9pm</span>
+  </div>
+</div>
+
+<header class="masthead">
+  <div class="shell masthead-inner">
+    <a class="wordmark" href="{% url 'home' %}">Nok<b>shi</b><span>{{ shop_tagline }}</span></a>
+
+    <form class="header-search" method="get" action="{% url 'product_list' %}" role="search">
+      <input type="search" name="q" placeholder="Search for saree, jug, wallet, lamp…" aria-label="Search products">
+      <button type="submit">Search</button>
+    </form>
+
+    <nav>
+      <a href="{% url 'product_list' %}">Shop</a>
+      {% if user.is_authenticated %}
+        <a href="{% url 'wishlist' %}">Saved</a>
+        <a href="{% url 'order_list' %}">Orders</a>
+        <a href="{% url 'notifications' %}">Alerts{% if unread_notifications %}<span class="pill">{{ unread_notifications }}</span>{% endif %}</a>
+        <a href="{% url 'cart_detail' %}">Bag{% if cart_count %}<span class="pill">{{ cart_count }}</span>{% endif %}</a>
+        <a href="{% url 'profile' %}">{{ user.first_name|default:user.username }}</a>
+        <form method="post" action="{% url 'logout' %}" style="display:inline">
+          {% csrf_token %}
+          <button type="submit" class="linkish" style="text-decoration:none">Log out</button>
+        </form>
+      {% else %}
+        <a href="{% url 'login' %}">Log in</a>
+        <a class="btn btn-small" href="{% url 'signup' %}">Create account</a>
+      {% endif %}
+    </nav>
+  </div>
+</header>
+
+{% if nav_categories %}
+<div class="subnav">
+  <div class="shell">
+    <a href="{% url 'product_list' %}">All products</a>
+    {% for category in nav_categories %}
+      <a href="{{ category.get_absolute_url }}">{{ category.name }}</a>
+    {% endfor %}
+    <a href="{% url 'product_list' %}?sort=price_low">Lowest price</a>
+  </div>
+</div>
+{% endif %}
+
+{% block hero %}{% endblock %}
+
+<main>
+  <div class="shell">
+    {% if messages %}
+      <ul class="messages">
+        {% for message in messages %}
+          <li class="{{ message.tags }}">{{ message }}</li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+
+    {% block content %}{% endblock %}
+  </div>
+</main>
+
+<footer class="footer">
+  <div class="shell">
+    <div class="footer-grid">
+      <div>
+        <h4>{{ shop_name }}</h4>
+        <p>Pottery, jamdani, jute, leather and brass from workshops around Bangladesh. We pay makers up front and ship from Dhaka within two working days.</p>
+        <div class="pay-row">
+          <span>bKash</span><span>Nagad</span><span>Card</span><span>Cash</span>
+        </div>
+      </div>
+      <div>
+        <h4>Shop</h4>
+        <ul>
+          {% for category in nav_categories %}
+            <li><a href="{{ category.get_absolute_url }}">{{ category.name }}</a></li>
+          {% endfor %}
+        </ul>
+      </div>
+      <div>
+        <h4>Help</h4>
+        <ul>
+          <li>Delivery ৳60 in Dhaka</li>
+          <li>Delivery ৳120 elsewhere</li>
+          <li>Returns within 7 days</li>
+          <li>01568567758</li>
+        </ul>
+      </div>
+      <div>
+        <h4>Newsletter</h4>
+        <p>One letter a month: new pieces and the stories behind them.</p>
+        {% if user.is_authenticated %}
+          <form method="post" action="{% url 'toggle_subscription' %}">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.path }}">
+            {% if is_subscribed %}
+              <button type="submit" class="btn btn-small btn-danger" style="color:#fff;border-color:#fff">Stop the newsletter</button>
+            {% else %}
+              <button type="submit" class="btn btn-small btn-accent">Sign me up</button>
+            {% endif %}
+          </form>
+        {% else %}
+          <a class="btn btn-small btn-accent" href="{% url 'signup' %}">Create an account</a>
+        {% endif %}
+      </div>
+    </div>
+    <p class="colophon">Built with Django as a learning project. Prices in Bangladeshi taka.Developed by Jannatul Masruk Mukta.</p>
+  </div>
+</footer>
+
+</body>
+</html>

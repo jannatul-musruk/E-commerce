@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block title %}Your orders — {{ shop_name }}{% endblock %}
+
+{% block content %}
+<div class="section-head">
+  <h1>Your orders</h1>
+  <p>{{ orders|length }} order{{ orders|length|pluralize }}</p>
+</div>
+
+{% if orders %}
+  <table>
+    <thead>
+      <tr><th>Order</th><th>Placed</th><th>Items</th><th>Status</th><th class="numeric">Total</th></tr>
+    </thead>
+    <tbody>
+      {% for order in orders %}
+        <tr>
+          <td><a href="{{ order.get_absolute_url }}">{{ order.code }}</a></td>
+          <td>{{ order.created_at|date:"j M Y" }}</td>
+          <td>
+            {% for item in order.items.all %}{{ item.variant.product.name }}{% if not forloop.last %}, {% endif %}{% endfor %}
+          </td>
+          <td><span class="tag tag-{{ order.status }}">{{ order.get_status_display }}</span></td>
+          <td class="numeric price">৳{{ order.total|floatformat:0 }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% else %}
+  <div class="empty-state">
+    <h2>No orders yet</h2>
+    <p>When you buy something it will be tracked here.</p>
+    <a class="btn" href="{% url 'product_list' %}">Browse the shop</a>
+  </div>
+{% endif %}
+{% endblock %}

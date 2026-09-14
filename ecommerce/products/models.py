@@ -1,188 +1,424 @@
+from decimal import Decimal
+
+from django.conf import settings
+from django.contrib.auth.models import AbstractUser
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+from django.urls import reverse
+from django.utils.text import slugify
 
 
+class CustomUser(AbstractUser):
+    """Our own user model.
 
-class CustomUser(models.Model):
+    AbstractUser already gives us username, first_name, last_name, email and a
+    securely hashed password, plus login/logout, permissions and admin support.
+    We only add what Django does not have.
+    """
 
-    CustomUser_ID = models.AutoField(primary_key=True)
-    firstName = models.CharField(255)
-    middleName = models.CharField(255,null=True)
-    lastName = models.CharField(255)
-    userName = models.CharField(255)
-    password = models.CharField(255)
-    CustomUser_email = models.EmailField(unique=True,Required=True)
+    middle_name = models.CharField(max_length=150, blank=True)
+    email = models.EmailField(unique=True)
+
+    REQUIRED_FIELDS = ["email"]
+
+    class Meta:
+        verbose_name = "user"
+        verbose_name_plural = "users"
+
+    @property
+    def full_name(self):
+        parts = [self.first_name, self.middle_name, self.last_name]
+        return " ".join(p for p in parts if p) or self.username
 
     def __str__(self):
-        return f"{self.userName} - {self.firstName} {self.lastName}"
+        return f"{self.username} ({self.full_name})"
 
 
 class Customer(models.Model):
-    Customer_ID = models.AutoField(primary_key=True)
-    CustomUser_ID = models.ForeignKey(CustomUser,on_delete=models.CASCADE)
-    Customer_phone = models.CharField(max_length=20)
-    Customer_address = models.CharField(max_length=255)
+    """Shopping profile attached to a user. Created automatically on signup."""
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="customer"
+    )
+    phone = models.CharField(max_length=20, blank=True)
+    address = models.CharField(max_length=255, blank=True)
+    city = models.CharField(max_length=100, blank=True)
+    joined_at = models.DateTimeField(auto_now_add=True)
+
     def __str__(self):
-        return f"{self.CustomUser_ID.userName} - {self.Customer_phone}"
+        return self.user.full_name
+
+
+@receiver(post_save, sender=settings.AUTH_USER_MODEL)
+def create_customer_profile(sender, instance, created, **kwargs):
+    if created:
+        Customer.objects.create(user=instance)
+
 
 class Category(models.Model):
-    Category_ID = models.AutoField(primary_key=True)
-    Category_name = models.CharField(255)
+    name = models.CharField(max_length=120, unique=True)
+    slug = models.SlugField(max_length=140, unique=True, blank=True)
+    description = models.CharField(max_length=255, blank=True)
+    image = models.ImageField(upload_to="categories/", blank=True)
+
+    class Meta:
+        verbose_name_plural = "categories"
+        ordering = ["name"]
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify(self.name)
+        super().save(*args, **kwargs)
+
+    def get_absolute_url(self):
+        return f"{reverse('product_list')}?category={self.slug}"
 
     def __str__(self):
-        return self.Category_name
-    
+        return self.name
+
+
 class Brand(models.Model):
-    Brand_ID = models.AutoField(primary_key=True)
-    Brand_name = models.CharField(255) 
+    name = models.CharField(max_length=120, unique=True)
+    slug = models.SlugField(max_length=140, unique=True, blank=True)
+    origin = models.CharField(max_length=120, blank=True, help_text="Where the maker is based")
+
+    class Meta:
+        ordering = ["name"]
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify(self.name)
+        super().save(*args, **kwargs)
+
     def __str__(self):
-        return self.Brand_name
-    
+        return self.name
+
+
 class Product(models.Model):
-    Product_ID = models.AutoField(primary_key=True)
-    Product_name = models.CharField(255)
-    Product_description = models.TextField()
-    Category_ID = models.ForeignKey(Category,on_delete=models.CASCADE)
-    Brand_ID = models.ForeignKey(Brand,on_delete=models.CASCADE)
+    name = models.CharField(max_length=200)
+    slug = models.SlugField(max_length=220, unique=True, blank=True)
+    description = models.TextField()
+    category = models.ForeignKey(Category, on_delete=models.PROTECT, related_name="products")
+    brand = models.ForeignKey(Brand, on_delete=models.PROTECT, related_name="products")
+    image = models.ImageField(upload_to="products/", blank=True)
+    is_featured = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify(self.name)
+        super().save(*args, **kwargs)
+
+    def get_absolute_url(self):
+        return reverse("product_detail", args=[self.slug])
+
+    @property
+    def starting_price(self):
+        prices = [v.price for v in self.variants.all()]
+        return min(prices) if prices else None
+
+    @property
+    def compare_at_price(self):
+        cheapest = min(self.variants.all(), key=lambda v: v.price, default=None)
+        return cheapest.compare_at_price if cheapest else None
+
+    @property
+    def discount_percent(self):
+        cheapest = min(self.variants.all(), key=lambda v: v.price, default=None)
+        return cheapest.discount_percent if cheapest else 0
+
+    @property
+    def total_stock(self):
+        return sum(v.stock for v in self.variants.all())
+
+    @property
+    def in_stock(self):
+        return self.total_stock > 0
+
+    @property
+    def average_rating(self):
+        ratings = [r.rating for r in self.reviews.all()]
+        if not ratings:
+            return None
+        return round(sum(ratings) / len(ratings), 1)
 
     def __str__(self):
-        return self.Product_name
-    
+        return self.name
+
+
 class ProductVariant(models.Model):
-    ProductVariant_ID = models.AutoField(primary_key=True)
-    Product_ID = models.ForeignKey(Product,on_delete=models.CASCADE)
-    ProductVariant_name = models.CharField(255)
-    price = models.DecimalField(max_digits=10,decimal_places=2)
-    stock = models.PositiveIntegerField()
+    """A buyable version of a product, e.g. a size or a colour."""
+
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="variants")
+    name = models.CharField(max_length=120, help_text="e.g. Indigo / Medium")
+    sku = models.CharField(max_length=40, unique=True)
+    price = models.DecimalField(max_digits=10, decimal_places=2)
+    compare_at_price = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="The old price. Leave empty if this item is not on offer.",
+    )
+    stock = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ["price"]
+        unique_together = ("product", "name")
+
+    @property
+    def in_stock(self):
+        return self.stock > 0
+
+    @property
+    def is_on_offer(self):
+        return bool(self.compare_at_price and self.compare_at_price > self.price)
+
+    @property
+    def discount_percent(self):
+        if not self.is_on_offer:
+            return 0
+        saved = self.compare_at_price - self.price
+        return int(round(saved / self.compare_at_price * 100))
 
     def __str__(self):
-        return f"{self.ProductVariant_name} - {self.price}"
-    
+        return f"{self.product.name} — {self.name}"
+
+
 class Cart(models.Model):
-    Cart_ID = models.AutoField(primary_key=True)
-    Customer_ID = models.ForeignKey(Customer,on_delete=models.CASCADE)
-    Cart_created_at = models.DateTimeField(auto_now_add=True)
+    customer = models.OneToOneField(Customer, on_delete=models.CASCADE, related_name="cart")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    @property
+    def subtotal(self):
+        return sum((item.line_total for item in self.items.all()), Decimal("0.00"))
+
+    @property
+    def item_count(self):
+        return sum(item.quantity for item in self.items.all())
+
+    def clear(self):
+        self.items.all().delete()
 
     def __str__(self):
-        return f"{self.Cart_ID} - {self.Customer_ID.CustomUser_ID.userName}" 
+        return f"Cart of {self.customer}"
+
 
 class CartItem(models.Model):
-    CartItem_ID = models.AutoField(primary_key=True)
-    Cart_ID = models.ForeignKey(Cart,on_delete=models.CASCADE)
-    ProductVariant_ID = models.ForeignKey(ProductVariant,on_delete=models.CASCADE)
-    CartItem_quantity = models.CharField(255)
+    cart = models.ForeignKey(Cart, on_delete=models.CASCADE, related_name="items")
+    variant = models.ForeignKey(ProductVariant, on_delete=models.CASCADE)
+    quantity = models.PositiveIntegerField(default=1)
+    added_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("cart", "variant")
+        ordering = ["added_at"]
+
+    @property
+    def line_total(self):
+        return self.variant.price * self.quantity
 
     def __str__(self):
-        return f"{self.quantity} x {self.ProductVariant_ID.ProductVariant_name}"
-    
+        return f"{self.quantity} x {self.variant.name}"
+
+
 class Order(models.Model):
-    Order_ID = models.AutoField(primary_key=True)
-    Customer_ID = models.ForeignKey(Customer,on_delete=models.CASCADE)
-    Order_status = models.CharField(max_length=255)
-    Order_created_at = models.DateTimeField(auto_now_add=True)
+    PENDING = "pending"
+    CONFIRMED = "confirmed"
+    SHIPPED = "shipped"
+    DELIVERED = "delivered"
+    CANCELLED = "cancelled"
+    STATUS_CHOICES = [
+        (PENDING, "Pending"),
+        (CONFIRMED, "Confirmed"),
+        (SHIPPED, "Shipped"),
+        (DELIVERED, "Delivered"),
+        (CANCELLED, "Cancelled"),
+    ]
+
+    code = models.CharField(max_length=20, unique=True, blank=True)
+    customer = models.ForeignKey(Customer, on_delete=models.PROTECT, related_name="orders")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=PENDING)
+    subtotal = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0.00"))
+    delivery_charge = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0.00"))
+    total = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0.00"))
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        if not self.code:
+            self.code = f"NK-{self.pk:05d}"
+            super().save(update_fields=["code"])
+
+    def get_absolute_url(self):
+        return reverse("order_detail", args=[self.pk])
+
+    @property
+    def can_be_cancelled(self):
+        return self.status in (self.PENDING, self.CONFIRMED)
 
     def __str__(self):
-        return f"{self.Order_ID} - {self.Customer_ID.CustomUser_ID.userName} - {self.status}" 
+        return f"{self.code} — {self.customer} — {self.get_status_display()}"
+
 
 class OrderItem(models.Model):
-    OrderItem_ID = models.AutoField(primary_key=True)
-    Order_ID = models.ForeignKey(Order,on_delete=models.CASCADE)
-    ProductVariant_ID = models.ForeignKey(ProductVariant,on_delete=models.CASCADE)
-    OrderItem_quantity = models.IntegerField()
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="items")
+    variant = models.ForeignKey(ProductVariant, on_delete=models.PROTECT)
+    quantity = models.PositiveIntegerField()
+    unit_price = models.DecimalField(
+        max_digits=10, decimal_places=2, help_text="Price at the time of ordering"
+    )
+
+    @property
+    def line_total(self):
+        return self.unit_price * self.quantity
 
     def __str__(self):
-        return f"order#{self.Order_ID.Order_ID} - {self.ProductVariant_ID.ProductVariant_name} * {self.OrderItem_quantity}" #order12 -red L * 2
-    
+        return f"{self.order.code} — {self.variant.name} x {self.quantity}"
+
+
 class Payment(models.Model):
-    Payment_ID = models.AutoField(primary_key=True)
-    Order_ID = models.OneToOneField(Order,on_delete=models.CASCADE)
-    amount = models.IntegerField()
-    PAYMENT_CHOICES = [
-    ('Cash', 'Cash'),
-    ('Card', 'Card'),
-    ('Bkash', 'Bkash'),
-    ('Nagad', 'Nagad'),
+    CASH = "cash"
+    BKASH = "bkash"
+    NAGAD = "nagad"
+    CARD = "card"
+    METHOD_CHOICES = [
+        (CASH, "Cash on delivery"),
+        (BKASH, "bKash"),
+        (NAGAD, "Nagad"),
+        (CARD, "Card"),
     ]
-    Payment_method = models.CharField(max_length=50, choices=PAYMENT_CHOICES)
-    paid_at = models.DateTimeField(auto_now_add=True)
-    is_paid = models.BooleanField(default=False)   
+
+    order = models.OneToOneField(Order, on_delete=models.CASCADE, related_name="payment")
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    method = models.CharField(max_length=20, choices=METHOD_CHOICES, default=CASH)
+    transaction_id = models.CharField(max_length=60, blank=True)
+    is_paid = models.BooleanField(default=False)
+    paid_at = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
-        return f"Payment#{self.Payment_ID} - Order#{self.Order_ID.Order_ID} - Amount: {self.amount}"
+        state = "paid" if self.is_paid else "unpaid"
+        return f"{self.order.code} — {self.get_method_display()} — {state}"
+
 
 class ShippingAddress(models.Model):
-    ShippingAddress_ID = models.AutoField(primary_key=True)
-    Order_ID = models.OneToOneField(Order,on_delete=models.CASCADE)
-    ShippingAddress_address = models.CharField(255)
-    city = models.CharField(max_length=255, default='Unknown')
-    postal_code = models.CharField(max_length=20, default='0000')
-    country = models.CharField(max_length=255)
+    order = models.OneToOneField(Order, on_delete=models.CASCADE, related_name="shipping_address")
+    recipient_name = models.CharField(max_length=150)
+    phone = models.CharField(max_length=20)
+    address = models.CharField(max_length=255)
+    city = models.CharField(max_length=100)
+    postal_code = models.CharField(max_length=20)
+    country = models.CharField(max_length=100, default="Bangladesh")
+
+    class Meta:
+        verbose_name_plural = "shipping addresses"
 
     def __str__(self):
-        f"{self.ShippingAddress_ID} - {self.Order_ID.Order_ID} - {self.country}"
+        return f"{self.recipient_name}, {self.city}"
+
 
 class Wishlist(models.Model):
-    Wishlist_ID = models.AutoField(primary_key=True)
-    Customer_ID = models.ForeignKey(Customer,on_delete=models.CASCADE)
-    ProductVariant_ID = models.ForeignKey(ProductVariant,on_delete=models.CASCADE)
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name="wishlist")
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="wishlisted_by")
+    added_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("customer", "product")
+        ordering = ["-added_at"]
 
     def __str__(self):
-        return f"{self.Customer_ID.CustomUser_ID.userName} - {self.ProductVariant_ID.ProductVariant_name}"
+        return f"{self.customer} saved {self.product.name}"
+
 
 class Review(models.Model):
-    Review_ID = models.AutoField(primary_key=True)
-    Customer_ID = models.ForeignKey(Customer,on_delete=models.CASCADE)
-    Product_ID = models.ForeignKey(Product,on_delete=models.CASCADE)
-    rating = models.IntegerField()
-    comment = models.CharField(max_length=255)
-    Review_created_at = models.DateTimeField(auto_now_add=True)
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name="reviews")
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="reviews")
+    rating = models.PositiveSmallIntegerField(
+        validators=[MinValueValidator(1), MaxValueValidator(5)]
+    )
+    comment = models.TextField(max_length=1000)
+    created_at = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        unique_together = ("customer", "product")
+        ordering = ["-created_at"]
 
     def __str__(self):
-        return f"{self.Customer_ID.CustomUser_ID.userName} - {self.Product_ID.Product_name} - {self.rating}"
+        return f"{self.product.name} — {self.rating}/5 by {self.customer}"
+
 
 class ReturnRequest(models.Model):
-    ReturnRequest_ID = models.AutoField(primary_key=True)
-    OrderItem_ID = models.OneToOneField(OrderItem,on_delete=models.CASCADE)
-    reason = models.CharField(max_length=255)
-    is_approved = models.BooleanField(default=False)
+    REQUESTED = "requested"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    STATUS_CHOICES = [
+        (REQUESTED, "Requested"),
+        (APPROVED, "Approved"),
+        (REJECTED, "Rejected"),
+    ]
+
+    order_item = models.OneToOneField(
+        OrderItem, on_delete=models.CASCADE, related_name="return_request"
+    )
+    reason = models.TextField(max_length=500)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=REQUESTED)
     requested_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"ReturnRequest #{self.ReturnRequest_ID} for OrderItem #{self.OrderItem_ID.OrderItem_ID}"    
+        return f"Return for {self.order_item} — {self.get_status_display()}"
+
 
 class Subscription(models.Model):
-    StopIteration_ID = models.AutoField(primary_key=True)
-    Customer_ID = models.OneToOneField(Customer,on_delete=models.CASCADE)
-    Subscribed_at = models.DateTimeField(auto_now_add=True)
+    customer = models.OneToOneField(
+        Customer, on_delete=models.CASCADE, related_name="subscription"
+    )
     is_active = models.BooleanField(default=True)
+    subscribed_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"Subscription for {self.Customer_ID.CustomUser_ID.userName} - Active: {self.is_active}"
-    
+        state = "active" if self.is_active else "paused"
+        return f"{self.customer} — newsletter {state}"
+
+
 class Notification(models.Model):
-    Notification_ID = models.AutoField(primary_key=True)
-    Customer_ID = models.ForeignKey(Customer,on_delete=models.CASCADE)
+    customer = models.ForeignKey(
+        Customer, on_delete=models.CASCADE, related_name="notifications"
+    )
     message = models.CharField(max_length=255)
+    link = models.CharField(max_length=255, blank=True)
     is_read = models.BooleanField(default=False)
-    Notification_created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
 
     def __str__(self):
-        return f"Notification for {self.Customer_ID.CustomUser_ID.userName} - Read: {self.is_read}"
+        return f"{self.customer} — {self.message[:40]}"
+
 
 class ActivityLog(models.Model):
-    ActivityLog_ID = models.AutoField(primary_key=True)
-    Customer_ID = models.ForeignKey(Customer,on_delete=models.CASCADE)
+    customer = models.ForeignKey(
+        Customer,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="activity",
+    )
     action = models.CharField(max_length=255)
-    Timestamp = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
 
     def __str__(self):
-        return f"{self.Customer_ID.CustomUser_ID.userName} - {self.action} at {self.timestamp}"       
-    
-    
-
-    
-    
-
-
-
-    
+        who = self.customer or "guest"
+        return f"{who} — {self.action} — {self.created_at:%d %b %Y %H:%M}"

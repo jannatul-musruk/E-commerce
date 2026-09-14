@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block title %}Your bag — {{ shop_name }}{% endblock %}
+
+{% block content %}
+<div class="section-head">
+  <h1>Your bag</h1>
+  <p>{{ cart.item_count }} item{{ cart.item_count|pluralize }}</p>
+</div>
+
+{% if items %}
+<div class="split">
+  <div>
+    <table class="line-table">
+      <thead>
+        <tr><th>Item</th><th class="numeric">Price</th><th>Quantity</th><th class="numeric">Line total</th></tr>
+      </thead>
+      <tbody>
+        {% for item in items %}
+          <tr>
+            <td>
+              <a href="{{ item.variant.product.get_absolute_url }}">{{ item.variant.product.name }}</a>
+              <div class="maker">{{ item.variant.name }}</div>
+              <a class="linkish" href="{% url 'cart_remove' item.pk %}">Remove</a>
+            </td>
+            <td class="numeric">৳{{ item.variant.price|floatformat:0 }}</td>
+            <td>
+              <form class="qty-form" method="post" action="{% url 'cart_update' item.pk %}">
+                {% csrf_token %}
+                <input type="number" name="quantity" value="{{ item.quantity }}" min="0" max="{{ item.variant.stock }}" aria-label="Quantity">
+                <button class="btn btn-small btn-quiet" type="submit">Update</button>
+              </form>
+            </td>
+            <td class="numeric price">৳{{ item.line_total|floatformat:0 }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="summary">
+    <h3>Summary</h3>
+    <dl>
+      <dt>Subtotal</dt><dd>৳{{ cart.subtotal|floatformat:0 }}</dd>
+      <dt>Delivery</dt><dd>counted at checkout</dd>
+    </dl>
+    <a class="btn btn-accent" href="{% url 'checkout' %}">Go to checkout</a>
+    <p style="margin-top:1rem"><a href="{% url 'product_list' %}">Keep shopping</a></p>
+  </div>
+</div>
+{% else %}
+  <div class="empty-state">
+    <h2>Your bag is empty</h2>
+    <p>Pick something from the shop and it will show up here.</p>
+    <a class="btn" href="{% url 'product_list' %}">Browse the shop</a>
+  </div>
+{% endif %}
+{% endblock %}

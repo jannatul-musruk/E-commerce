@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block title %}Alerts — {{ shop_name }}{% endblock %}
+
+{% block content %}
+<div class="section-head">
+  <h1>Alerts</h1>
+  <p>{% if marked_read %}{{ marked_read }} new, now marked read{% else %}All caught up{% endif %}</p>
+</div>
+
+{% if notes %}
+  <table>
+    <tbody>
+      {% for note in notes %}
+        <tr>
+          <td>
+            {% if note.link %}<a href="{{ note.link }}">{{ note.message }}</a>{% else %}{{ note.message }}{% endif %}
+          </td>
+          <td class="numeric maker">{{ note.created_at|date:"j M Y, g:i a" }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% else %}
+  <div class="empty-state">
+    <h2>No alerts</h2>
+    <p>We will write here when an order changes state.</p>
+  </div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block title %}Log in — {{ shop_name }}{% endblock %}
+
+{% block content %}
+<div class="split">
+  <div>
+    <h1>Log in</h1>
+    <p>Your bag, saved items and order history are waiting.</p>
+
+    <form method="post">
+      {% csrf_token %}
+      {% if form.non_field_errors %}<ul class="errorlist">{% for e in form.non_field_errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+      <p>{{ form.username.label_tag }}{{ form.username }}{{ form.username.errors }}</p>
+      <p>{{ form.password.label_tag }}{{ form.password }}{{ form.password.errors }}</p>
+      <button class="btn" type="submit">Log in</button>
+    </form>
+
+    <p style="margin-top:1.5rem">No account yet? <a href="{% url 'signup' %}">Create one</a>.</p>
+  </div>
+
+  <div class="summary">
+    <h3>Try the demo</h3>
+    <p style="margin:0">Sample data ships with a customer account — username <strong>rumi</strong>, password <strong>nokshi1234</strong>. The admin account is <strong>admin</strong> / <strong>admin1234</strong>.</p>
+  </div>
+</div>
+{% endblock %}

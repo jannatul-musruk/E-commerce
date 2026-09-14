@@ -1,4 +1,11 @@
 # Nokshi — a Django e-commerce project
+# E-commerce Website
+
+## 🚀 Live Demo
+
+👉 [View Live Website](https://mukta11.pythonanywhere.com)
+
+This repository contains the source code of the E-commerce Website.
 
 A working storefront for a Bangladeshi handicraft shop: pottery, jamdani, jute,
 leather and brass. Built with Django 5.2 and SQLite.
